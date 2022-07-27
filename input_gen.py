@@ -15,9 +15,7 @@ linewidth = 2
 
 rgb_bitwidth = 8; 
 
-end_points = [[2,2],[22,118],[22,118],[38,118],[38,118],[48,2],[48,2],[66,118]]
-#end_points = [[2,2],[8,8],[2,45],[26,18]]
-
+end_points = [[2,2],[26,118],[26,118],[26,118],[26,118],[48,2],[48,2],[66,118]]
 
 
 def int2bi(data,bit_width):
@@ -35,21 +33,25 @@ def norm(data, max_val, width):
 		
 
 def gen_circle(raster_rgb,center,radius):
-	angles = np.linspace(0, 6.28, num= int(radius*3.14))
+	angles = np.linspace(0, 6.28, num= int(radius*4))
 	for a in angles:
 		x = int(center[0] + radius*math.cos(a)) 
 		y = int(center[1] + radius*math.sin(a)) 
-		raster_rgb[x,y,0] = 250
-		raster_rgb[x,y,1] = 0
-		raster_rgb[x,y,2] = 0
+		raster_rgb[y,x,0] = 250
+		raster_rgb[y,x+1,0] = 250
+		raster_rgb[y,x-1,0] = 250
+		raster_rgb[y+1,x,0] = 250
+		raster_rgb[y-1,x,0] = 250
+		raster_rgb[y,x,1] = 20
+		raster_rgb[y,x,2] = 20
 		if x > center[0] and y>center[1]:
-			raster_rgb[x-1,y-1,0] = 250
+			raster_rgb[y-1,x-1,0] = 250
 		if x < center[0] and y>center[1]:
-			raster_rgb[x+1,y-1,0] = 250
+			raster_rgb[y+1,x-1,0] = 250
 		if x < center[0] and y<center[1]: 
-			raster_rgb[x+1,y+1,0] = 250
+			raster_rgb[y+1,x+1,0] = 250
 		if x > center[0] and y<center[1]: 
-			raster_rgb[x-1,y+1,0] = 250
+			raster_rgb[y-1,x+1,0] = 250
 	return raster_rgb 
 
 def anti_aliasing(nrows,ncols,data,th):
@@ -116,13 +118,11 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 			print(x,y,dx,dy)
 			if dx ==0:
 				y = y + y/abs(y)
-				break
 			elif dy ==0:
 				x = x +x/abs(x)
-				break
 			else:
 				if abs(dx) >= abs(dy):
-					if flag[0] < 12:  
+					if flag[0] < 6:  
 						x = x + dx/abs(dx)
 						flag[0] = flag[0]+1
 					else:
@@ -130,7 +130,7 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 						flag[0] = 0
 					cx = 1 
 				elif abs(dy) > abs(dx): 
-					if flag[1] < 12: 
+					if flag[1] < 6: 
 						y = y + dy/abs(dy)
 						flag[1] = flag[1] +1
 					else:
@@ -186,41 +186,6 @@ def plot_xy(x_arr,y_arr,num_xy):
 	plt.show()
 
 
-
-raster_rgb = raster_input(size)
-stroke_rgb = raster_rgb.copy()
-sum_rgb1 = raster_rgb.copy()
-
-x_arr, y_arr, rgb_arr,v_arr,stroke_rgb = gen_xy_input(stroke_rgb,end_points,rgb_bitwidth)
-
-
-#raster_cir = gen_circle(rgb_array_3d,[50,50],20)
-
-
-
-sum_rgb1 = raster_rgb + stroke_rgb
-
-def cap(sum_rgb1,nrows,ncols):
-	for x in range(nrows):
-		for y in range(ncols):
-			if sum_rgb1[x,y,0] > 255:	
-				sum_rgb1[x,y,0] = sum_rgb1[x,y,0] -255
-			if sum_rgb1[x,y,1] > 255:	
-				sum_rgb1[x,y,1] = sum_rgb1[x,y,1] -255
-			if sum_rgb1[x,y,2] > 255:	
-				sum_rgb1[x,y,2] =  sum_rgb1[x,y,2] -255
-
-	return sum_rgb1
-		
-sum_rgb1 = cap(sum_rgb1,nrows,ncols)
-	
-#plot_pixel(sum_rgb1)
-
- 
-rgb_aa_3d = anti_aliasing_3d(nrows,ncols,sum_rgb1,1)
-
-plot_pixel(stroke_rgb) 
-
 def write_pixel(sum_rgb1,nrows,ncols):
 	frgb = open("rgb_input.txt","w") 
 	for x in range(nrows):
@@ -230,13 +195,8 @@ def write_pixel(sum_rgb1,nrows,ncols):
 			g= int2bi(sum_rgb1[x,y,1],8)
 			b= int2bi(sum_rgb1[x,y,2],8)
 			rgb = str(r)+str(g)+str(b)
-			frgb.write(rgb+"\n")
-						
+			frgb.write(rgb+"\n")						
 	frgb.close()
-
-#write_pixel(sum_rgb1,nrows,ncols)
-
-
 
 def plot_output(raster):
 	f_out = open("output_rgb_by4.txt","r")
@@ -251,13 +211,35 @@ def plot_output(raster):
 		if y == ncols:
 			y = 0
 			x = x + 1
-
 	return raster 
 
-#raster_out = sum_rgb1.copy()
+def cap(sum_rgb1,nrows,ncols):
+	for x in range(nrows):
+		for y in range(ncols):
+			if sum_rgb1[x,y,0] > 255:	
+				sum_rgb1[x,y,0] = 255
+			if sum_rgb1[x,y,1] > 255:	
+				sum_rgb1[x,y,1] = 255
+			if sum_rgb1[x,y,2] > 255:	
+				sum_rgb1[x,y,2] =  255
+	return sum_rgb1
 
-#rasrer_out = plot_output(raster_out)
 
-#plot_pixel(raster_out)
+raster_rgb = raster_input(size)
+stroke_rgb = raster_rgb.copy()
+merged_rgb = raster_rgb.copy()
+rgb_aa = raster_rgb.copy()
 
 
+x_arr, y_arr, rgb_arr,v_arr,stroke_rgb = gen_xy_input(stroke_rgb,end_points,rgb_bitwidth)
+
+raster_cir = gen_circle(raster_rgb,[96,60],20)
+
+merged_rgb = raster_rgb + stroke_rgb + raster_cir
+
+
+rgb_aa = anti_aliasing_3d(nrows,ncols,merged_rgb,1)
+
+plot_pixel(rgb_aa) 
+
+#write_pixel(sum_rgb1,nrows,ncols)
