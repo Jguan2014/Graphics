@@ -10,8 +10,8 @@ Parameters:
 
 functions:
 
-  gen_xy: generates xy between two end points 
-  gen_circle: generate xy of the perimeter of a circle 
+    gen_xy: generates xy between two end points 
+    gen_circle: generate xy of the perimeter of a circle 
   
     
     
