@@ -9,6 +9,7 @@ Parameters:
     end_points: this takes the end point pairs i.e. [(2,2),(10,10)] will draw a line from (2,2) to (10,10)
 
 functions:
+
     int2bi: convert interger value to binary value given number of bits needed 
     gen_circle: generate xy of the perimeter of a circle 
     anti-aliasing: perform anti-alising in one color domain 
