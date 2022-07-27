@@ -4,25 +4,30 @@ import numpy as np
 import math 
 
 write_output = 0
-size = 100
-nrows = 100
-ncols = 100
-x_width = 9
-y_width = 9
-num_xy = 30  #number of x-y pairs per line segment
+size = 128
+
+nrows = size
+ncols = size 
+x_width = 8
+y_width = 8
+num_xy = 6  #number of x-y pairs per line segment
 linewidth = 2
-slope = 1;
-y_intercept = 10;
 
 rgb_bitwidth = 8; 
 
-num_seg = 2
+end_points = [[2,2],[22,118],[22,118],[38,118],[38,118],[48,2],[48,2],[66,118]]
+#end_points = [[2,2],[8,8],[2,45],[26,18]]
+
+
+
 def int2bi(data,bit_width):
-	bi = bin(data)
-	bi = bi[2:]
-	if(bit_width - len(bi) > 0):
-		bi = (bit_width - len(bi))* '0' + bi	
-	return bi 
+	bi = str(bin(data))
+	bi_chop = bi[2:]
+	if(bit_width - len(bi_chop) > 0):
+		new_bi = (bit_width - len(bi_chop))* '0' + str(bi_chop)	
+	else:
+		new_bi = bi_chop
+	return new_bi 
 		
 def norm(data, max_val, width):
 	div = (data / max_val) * 100
@@ -61,7 +66,7 @@ def anti_aliasing(nrows,ncols,data,th):
                                                 #Edge detection: when a black pixel neighbours a white pixel  
                                                 if data[i][j] == 0 and ((data[i][j+1]>th or data[i][j-1]>th) or  (data[i+1][j]>th or data[i-1][j]>th)):
                                                         avg1 += data[row][col]
-                                                        count1 = count1 +1;
+                                                        count1 = count1 +1
                         avg1 = avg1 / count1
                         data1[i][j] = 255-avg1
         return data1
@@ -78,34 +83,66 @@ def anti_aliasing_3d(nrows,ncols,raster_rgb,vth):
 	 return raster 
 	 
 #generates x,y,r,g,b,a values 
-def gen_xy_input(raster_rgb,num_xy,start,slope,y_intercept,num_seg,rgb_bitwidth,linewidth):
+def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 	x_array = []
 	y_array = []
 	x_bi_array = []
 	y_bi_array = []
-	fx = open("x_input.txt", "w")
-	fy = open("y_input.txt", "w")
-	frgb = open("rgb_input.txt", "w")
-	fv = open("v_input.txt", "w")
+	if write_output:
+		fx = open("x_input.txt", "w")
+		fy = open("y_input.txt", "w")
+		fv = open("v_input.txt", "w")
 	rgb_array = []
 	v_array = []
-	r = random.randint(0,255) #8-bit 
-	g = random.randint(0,255)
-	b = random.randint(0,255)
 	v = 1
-	x = start[0]
-	for i in range (num_xy): #for each line segment, introduce some noises due to ADC
-		y = slope*x+start[1]
-		for m in  [0,1,2]:
-			new_x = x
-			new_y = y+m
-			if new_x >= ncols: new_x = ncols-1
-			if new_x < 0: new_x = 0
-	        	if new_y >= nrows: new_y = nrows-1
-			if new_y < 0: new_y = 0  
-			raster_rgb[new_x,new_y,0] = r 
-			raster_rgb[new_x,new_y,1] = g 
-			raster_rgb[new_x,new_y,2] = b 
+	for i in range(0,len(end_points),2):
+		r = 0
+		g = random.randint(50,180)
+		b = random.randint(50,180)
+
+		start = end_points[i]
+		end = end_points[i+1]
+		
+		x,y = start
+		avgx,avgy= x,y 
+		print(start,end)
+		dx = 20
+		dy = 20
+		flag = [0,0]	
+		while abs(dx) >2 or abs(dy)>2:
+			cx, cy = 0,0
+			dx = end[0] - avgx
+			dy = end[1] - avgy
+			print(x,y,dx,dy)
+			if dx ==0:
+				y = y + y/abs(y)
+				break
+			elif dy ==0:
+				x = x +x/abs(x)
+				break
+			else:
+				if abs(dx) >= abs(dy):
+					if flag[0] < 12:  
+						x = x + dx/abs(dx)
+						flag[0] = flag[0]+1
+					else:
+						y = y + dy/abs(dy)
+						flag[0] = 0
+					cx = 1 
+				elif abs(dy) > abs(dx): 
+					if flag[1] < 12: 
+						y = y + dy/abs(dy)
+						flag[1] = flag[1] +1
+					else:
+						x = x + dx/abs(dx)
+						flag[1] = 0
+					cy = 1
+			for delta in [-1,0,1]:
+				stroke_rgb[y,x+delta,0] = r
+				stroke_rgb[y,x+delta,1] = g
+				stroke_rgb[y,x+delta,2] = b
+			avgx = (avgx+x)/2
+			avgy = (avgy+y)/2
 		if write_output: 
 			x_bi = int2bi(int(x),8)
 			y_bi = int2bi(int(y),8)
@@ -115,18 +152,16 @@ def gen_xy_input(raster_rgb,num_xy,start,slope,y_intercept,num_seg,rgb_bitwidth,
 			v_bi = int2bi(int(v),rgb_bitwidth) 
 			fx.write(x_bi+"\n")
 			fy.write(y_bi+"\n")
-			frgb.write(str(r_bi)+str(g_bi) + str(b_bi) + str(v_bi)+"\n")
 			fv.write(v_bi+"\n")
 			x_array.append(x)
 			y_array.append(y)
 			rgb_array.append([r, g, b])
 			v_array.append(v)
-		x = x+1 
-	fx.close()
-	fy.close()
-	frgb.close()
-	fv.close()
-	return x_array,y_array,rgb_array,v_array,raster_rgb
+	if write_output:
+		fx.close()
+		fy.close()
+		fv.close()
+	return x_array,y_array,rgb_array,v_array,stroke_rgb
 
 #generates r,g,b values 
 def raster_input(size):
@@ -152,27 +187,77 @@ def plot_xy(x_arr,y_arr,num_xy):
 
 
 
-rgb_array_3d = raster_input(size)
-
-x_arr, y_arr, rgb_arr,v_arr,raster_rgb = gen_xy_input(rgb_array_3d,num_xy,[20,20],slope,y_intercept,num_seg,rgb_bitwidth,linewidth)
-raster_rgb1 = raster_rgb.copy()
+raster_rgb = raster_input(size)
+stroke_rgb = raster_rgb.copy()
 sum_rgb1 = raster_rgb.copy()
 
-x_arr, y_arr, rgb_arr,v_arr,raster_rgb1 = gen_xy_input(rgb_array_3d,num_xy,[20,80],-1,y_intercept,num_seg,rgb_bitwidth,linewidth)
+x_arr, y_arr, rgb_arr,v_arr,stroke_rgb = gen_xy_input(stroke_rgb,end_points,rgb_bitwidth)
 
 
-raster_cir = gen_circle(rgb_array_3d,[50,50],20)
-
-sum_rgb1 = raster_rgb + raster_rgb1+raster_cir
+#raster_cir = gen_circle(rgb_array_3d,[50,50],20)
 
 
-#plot_pixel(rgb_array)
-#print(str(nrows)+"by"+ str(ncols)+ "raster RGB array:")
 
-rgb_aa_3d = anti_aliasing_3d(nrows,ncols,sum_rgb1,30)
+sum_rgb1 = raster_rgb + stroke_rgb
 
-plot_pixel(rgb_aa_3d) 
+def cap(sum_rgb1,nrows,ncols):
+	for x in range(nrows):
+		for y in range(ncols):
+			if sum_rgb1[x,y,0] > 255:	
+				sum_rgb1[x,y,0] = sum_rgb1[x,y,0] -255
+			if sum_rgb1[x,y,1] > 255:	
+				sum_rgb1[x,y,1] = sum_rgb1[x,y,1] -255
+			if sum_rgb1[x,y,2] > 255:	
+				sum_rgb1[x,y,2] =  sum_rgb1[x,y,2] -255
+
+	return sum_rgb1
+		
+sum_rgb1 = cap(sum_rgb1,nrows,ncols)
+	
+#plot_pixel(sum_rgb1)
+
+ 
+rgb_aa_3d = anti_aliasing_3d(nrows,ncols,sum_rgb1,1)
+
+plot_pixel(stroke_rgb) 
+
+def write_pixel(sum_rgb1,nrows,ncols):
+	frgb = open("rgb_input.txt","w") 
+	for x in range(nrows):
+		for y in range(ncols):
+			rgb = ''
+			r= int2bi(sum_rgb1[x,y,0],8)
+			g= int2bi(sum_rgb1[x,y,1],8)
+			b= int2bi(sum_rgb1[x,y,2],8)
+			rgb = str(r)+str(g)+str(b)
+			frgb.write(rgb+"\n")
+						
+	frgb.close()
+
+#write_pixel(sum_rgb1,nrows,ncols)
 
 
+
+def plot_output(raster):
+	f_out = open("output_rgb_by4.txt","r")
+	rgbs = f_out.readlines()
+	x = 0
+	y = 0
+	for rgb in rgbs:
+		raster[x,y,0] = int(rgb[0:7],2)
+		raster[x,y,1] = int(rgb[8:15],2)
+		raster[x,y,2] = int(rgb[16:23],2)
+		y= y+1 
+		if y == ncols:
+			y = 0
+			x = x + 1
+
+	return raster 
+
+#raster_out = sum_rgb1.copy()
+
+#rasrer_out = plot_output(raster_out)
+
+#plot_pixel(raster_out)
 
 
