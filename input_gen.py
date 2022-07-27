@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np 
 import math 
 
-write_output = 0
+write_output = 1
 size = 128
 
 nrows = size
@@ -93,6 +93,7 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 	if write_output:
 		fx = open("x_input.txt", "w")
 		fy = open("y_input.txt", "w")
+		frgb = open("rgb_input.txt", "w")
 		fv = open("v_input.txt", "w")
 	rgb_array = []
 	v_array = []
@@ -143,23 +144,25 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 				stroke_rgb[y,x+delta,2] = b
 			avgx = (avgx+x)/2
 			avgy = (avgy+y)/2
-		if write_output: 
-			x_bi = int2bi(int(x),8)
-			y_bi = int2bi(int(y),8)
-			r_bi = int2bi(int(r),rgb_bitwidth) 
-			g_bi = int2bi(int(g),rgb_bitwidth) 
-			b_bi = int2bi(int(b),rgb_bitwidth) 
-			v_bi = int2bi(int(v),rgb_bitwidth) 
-			fx.write(x_bi+"\n")
-			fy.write(y_bi+"\n")
-			fv.write(v_bi+"\n")
-			x_array.append(x)
-			y_array.append(y)
-			rgb_array.append([r, g, b])
-			v_array.append(v)
+			if write_output: 
+				x_bi = int2bi(int(x),8)
+				y_bi = int2bi(int(y),8)
+				r_bi = int2bi(int(r),rgb_bitwidth) 
+				g_bi = int2bi(int(g),rgb_bitwidth) 
+				b_bi = int2bi(int(b),rgb_bitwidth) 
+				v_bi = int2bi(int(v),rgb_bitwidth) 
+				fx.write(x_bi+"\n")
+				fy.write(y_bi+"\n")
+				frgb.write(r_bi+g_bi+b_bi+"\n")
+				fv.write(v_bi+"\n")
+				x_array.append(x)
+				y_array.append(y)
+				rgb_array.append([r, g, b])
+				v_array.append(v)
 	if write_output:
 		fx.close()
 		fy.close()
+		frgb.close()
 		fv.close()
 	return x_array,y_array,rgb_array,v_array,stroke_rgb
 
