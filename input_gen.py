@@ -4,7 +4,7 @@ import numpy as np
 import math 
 
 write_output = 1
-size = 128
+size = 480
 
 nrows = size
 ncols = size 
@@ -54,8 +54,9 @@ def gen_circle(raster_rgb,center,radius):
 			raster_rgb[y-1,x+1,0] = 250
 	return raster_rgb 
 
-def anti_aliasing(nrows,ncols,data,th):
-        data1 = data.copy()  
+def anti_aliasing(nrows,ncols,stroke_rgb,raster_rgb,vth):
+        data = stroke_rgb.copy()  
+        data1 = stroke_rgb.copy()  
 	for i in range(nrows):
                 for j in range(ncols):
                         avg1 = data[i][j]
@@ -66,26 +67,45 @@ def anti_aliasing(nrows,ncols,data,th):
                                         col = f + j
                                         if i>0 and i <nrows-1 and j>0 and j<ncols-1: #boundary checking 
                                                 #Edge detection: when a black pixel neighbours a white pixel  
-                                                if data[i][j] == 0 and ((data[i][j+1]>th or data[i][j-1]>th) or  (data[i+1][j]>th or data[i-1][j]>th)):
+                                                if data[i][j] == 0 and ((data[i][j+1] > vth or data[i][j-1] > vth) or  (data[i+1][j] > vth or data[i-1][j] > vth)):
                                                         avg1 += data[row][col]
                                                         count1 = count1 +1
                         avg1 = avg1 / count1
-                        data1[i][j] = 255-avg1
+                        data1[i][j] = 255 - avg1
         return data1
 
+def anti_aliasing_sub_pixel(nrows,ncols,stroke_ss_rgb,raster_rgb,vth):
+        data = stroke_ss_rgb.copy()  
+        aa_data= raster_rgb.copy()  
 
-def anti_aliasing_3d(nrows,ncols,raster_rgb,vth):
+        avg = 0 
+ 	row = 0
+ 	col = 0
+	for i in range(1,nrows-1,2):
+                for j in range(1,ncols-1,2):
+                	avg = (stroke_ss_rgb[i][j] + stroke_ss_rgb[i][j+1] + stroke_ss_rgb[i+1][j] + stroke_ss_rgb[i+1][j+1])/4
+        		if avg == 0:   
+        			aa_data[row][col] = raster_rgb[row][col]
+        		else:
+        			aa_data[row][col] = avg 
+        		col = col + 1
+        	row = row + 1 
+        	col = 0
+        return aa_data
+
+
+def anti_aliasing_3d(nrows,ncols,stroke_ss_rgb,raster_rgb,vth):
 	 raster = raster_rgb.copy()
-	 red_aa = anti_aliasing(nrows,ncols,raster_rgb[:,:,0],vth)
-	 grn_aa = anti_aliasing(nrows,ncols,raster_rgb[:,:,1],vth)
-	 blu_aa = anti_aliasing(nrows,ncols,raster_rgb[:,:,2],vth)
+	 red_aa = anti_aliasing(nrows,ncols,stroke_ss_rgb[:,:,0],raster_rgb[:,:,0],vth)
+	 grn_aa = anti_aliasing(nrows,ncols,stroke_ss_rgb[:,:,1],raster_rgb[:,:,1],vth)
+	 blu_aa = anti_aliasing(nrows,ncols,stroke_ss_rgb[:,:,2],raster_rgb[:,:,2],vth)
 	 raster[:,:,0] = red_aa
 	 raster[:,:,1] = grn_aa
 	 raster[:,:,2] = blu_aa
 	 return raster 
 	 
 #generates x,y,r,g,b,a values 
-def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
+def gen_xy_input(end_points,rgb_bitwidth):
 	x_array = []
 	y_array = []
 	x_bi_array = []
@@ -97,7 +117,7 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 		fv = open("v_input.txt", "w")
 	rgb_array = []
 	v_array = []
-	v = 1
+	v = 1   #should be 3 bit?
 	for i in range(0,len(end_points),2):
 		r = 0
 		g = random.randint(50,180)
@@ -108,7 +128,6 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 		
 		x,y = start
 		avgx,avgy= x,y 
-		print(start,end)
 		dx = 20
 		dy = 20
 		flag = [0,0]	
@@ -116,7 +135,6 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 			cx, cy = 0,0
 			dx = end[0] - avgx
 			dy = end[1] - avgy
-			print(x,y,dx,dy)
 			if dx ==0:
 				y = y + y/abs(y)
 			elif dy ==0:
@@ -138,33 +156,31 @@ def gen_xy_input(stroke_rgb,end_points,rgb_bitwidth):
 						x = x + dx/abs(dx)
 						flag[1] = 0
 					cy = 1
-			for delta in [-1,0,1]:
-				stroke_rgb[y,x+delta,0] = r
-				stroke_rgb[y,x+delta,1] = g
-				stroke_rgb[y,x+delta,2] = b
+			x_array.append(x)
+			y_array.append(y)
+			rgb_array.append([r, g, b])
+			v_array.append(v)
+
 			avgx = (avgx+x)/2
 			avgy = (avgy+y)/2
 			if write_output: 
-				x_bi = int2bi(int(x),8)
-				y_bi = int2bi(int(y),8)
+				x_bi = int2bi(int(x),12)
+				y_bi = int2bi(int(y),12)
 				r_bi = int2bi(int(r),rgb_bitwidth) 
 				g_bi = int2bi(int(g),rgb_bitwidth) 
 				b_bi = int2bi(int(b),rgb_bitwidth) 
-				v_bi = int2bi(int(v),rgb_bitwidth) 
+				v_bi = int2bi(int(v),1) 
 				fx.write(x_bi+"\n")
 				fy.write(y_bi+"\n")
 				frgb.write(r_bi+g_bi+b_bi+"\n")
 				fv.write(v_bi+"\n")
-				x_array.append(x)
-				y_array.append(y)
-				rgb_array.append([r, g, b])
-				v_array.append(v)
+
 	if write_output:
 		fx.close()
 		fy.close()
 		frgb.close()
 		fv.close()
-	return x_array,y_array,rgb_array,v_array,stroke_rgb
+	return x_array,y_array,rgb_array,v_array
 
 #generates r,g,b values 
 def raster_input(size):
@@ -228,21 +244,41 @@ def cap(sum_rgb1,nrows,ncols):
 	return sum_rgb1
 
 
+
+#given a sub_pixel factor of 2, scale up the stroke array 
+def write_to_stroke_ss_buffer(x_input,y_input,rgb_input,stroke_rgb,stroke_ss_rgb):
+	for i in range(len(x_input)):
+		x = x_input[i]
+		y = y_input[i]
+		r,g,b = rgb_input[i]
+		for delta in [-1,0,1]:
+			stroke_ss_rgb[y,x+delta,0] = r
+			stroke_ss_rgb[y,x+delta,1] = g
+			stroke_ss_rgb[y,x+delta,2] = b
+
+	return stroke_ss_rgb
+
 raster_rgb = raster_input(size)
 stroke_rgb = raster_rgb.copy()
 merged_rgb = raster_rgb.copy()
 rgb_aa = raster_rgb.copy()
 
+seed = np.random.RandomState(2021)
+stroke_rgb_ss_array = seed.randint(0,1,size=(size,size,3))
 
-x_arr, y_arr, rgb_arr,v_arr,stroke_rgb = gen_xy_input(stroke_rgb,end_points,rgb_bitwidth)
+#given end point pairs, generate x y r g b values 
+x_arr, y_arr, rgb_arr,v_arr= gen_xy_input(end_points,rgb_bitwidth)
+
+#given x y r g b, write to stroke buffer (super sampling stroke buffer)
+rgb_ss_array = write_to_stroke_ss_buffer(x_arr,y_arr,rgb_arr,stroke_rgb,stroke_rgb_ss_array)
 
 raster_cir = gen_circle(raster_rgb,[96,60],20)
 
-merged_rgb = raster_rgb + stroke_rgb + raster_cir
+merged_rgb = raster_rgb + rgb_ss_array + raster_cir
 
 
-rgb_aa = anti_aliasing_3d(nrows,ncols,merged_rgb,1)
-
+#rgb_aa = anti_aliasing_3d(nrows*2,ncols*2,stroke_rgb_ss_array,raster_rgb,1)
+rgb_aa = anti_aliasing_3d(nrows,ncols,merged_rgb,raster_rgb,1)
 plot_pixel(rgb_aa) 
 
 #write_pixel(sum_rgb1,nrows,ncols)
